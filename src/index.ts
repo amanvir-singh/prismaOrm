@@ -40,7 +40,6 @@ app.put("/post/:id/views", async (req, res) => {
 
 app.put("/publish/:id", async (req, res) => {
   const { id } = req.params;
-  let newValue;
   try {
     // toggle the `published` field on the specified post
     const post = await prisma.post.findFirst({
@@ -48,17 +47,12 @@ app.put("/publish/:id", async (req, res) => {
         id: Number(id)
       }
     })
-    if (post?.published === false) {
-      newValue = true;
-    } else {
-      newValue = false;
-    }
     const updatedPost = await prisma.post.update({
       where: {
         id: Number(id)
       },
       data: {
-        published: newValue,
+        published: !post?.published,
       }
     });
 
@@ -124,15 +118,23 @@ app.get("/feed", async (req, res) => {
   // 4. take the amount of posts specified
   // 5. order the posts by the field `updated_at` descending or ascending basesd on the parameter `orderBy`
   // 6. if the `searchString` parameter is not an empty, use the string to filter posts not matching the post titles or post content
+  let conditions;
+  if (searchString != undefined) {
+      conditions = {
+        published: true,
+        OR: [
+          {title: { contains: searchString as string }},
+          {content: { contains: searchString as string }}
+      ]
+    }
+  } else {
+      conditions = {
+        published: true,
+      }
+  }
 
   const posts = await prisma.post.findMany({
-    where: {
-      published: true,
-      OR: [
-        {title: { contains: searchString as string }},
-        {content: { contains: searchString as string }}
-      ]
-    },
+    where: conditions,
     include: { author: true },
     skip: skip ? Number(skip) : undefined,
     take: take ? Number(take) : undefined,
